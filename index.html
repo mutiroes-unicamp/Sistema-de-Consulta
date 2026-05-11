@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mutirões</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="flex items-start justify-center p-6 min-h-screen bg-fixed bg-cover bg-center"
+style="background-image: url('logo.png');">
+
+<div class="fixed inset-0 bg-black/40 -z-10"></div>
+
+<!-- Marca do desenvolvedor -->
+<div class="fixed bottom-4 right-4 z-50 text-white text-xs text-right opacity-70 hover:opacity-100 transition">
+  <p>
+    Desenvolvido por 
+    <a href="https://www.linkedin.com/in/gabriel-vieira-caldana/" 
+       target="_blank"
+       class="font-medium underline hover:text-blue-300">
+       Gabriel Vieira
+    </a>
+  </p>
+  <p class="text-[10px]">Vice-capitão</p>
+</div>  
+
+<div class="relative bg-white/95 rounded-2xl shadow-xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
+
+<!-- MENU -->
+<div class="flex gap-2 mb-4">
+<button id="btnConsulta" class="tab active">Consulta de Horas</button>
+<button id="btnValidacao" class="tab">Validação de Horas</button>
+<button id="btnInfo" class="tab">Informações para contato</button>
+</div>
+
+<style>
+.tab {
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: #6b7280;
+  color: white;
+}
+.tab.active {
+  background: #3b82f6;
+}
+</style>
+
+<!-- CONSULTA -->
+<div id="abaConsulta">
+
+<input id="raInput" placeholder="Digite seu RA"
+class="w-full p-3 border rounded mb-3">
+
+<button id="searchButton"
+class="w-full bg-blue-500 text-white p-3 rounded">
+Consultar horas
+</button>
+
+<div id="result" class="mt-4 text-center"></div>
+<div id="eventsList" class="mt-4"></div>
+
+</div>
+
+<!-- INFO -->
+<div id="abaInfo" class="hidden">
+
+<h2 class="text-lg font-bold mb-2">Informações para contato</h2>
+
+<p class="text-gray-700 mt-3 mb-2"> Está com dúvidas ou encontrou algum problema na consulta ou validação de horas?
+Entre em contato com um dos responsáveis!  </p> 
+
+<h3 class="text-base mt-2">
+  📱 <span class="font-bold">Brunna:</span> +55 12 99141-3321
+</h3>
+
+<h3 class="text-base mt-2 mb-2">
+  📱 <span class="font-bold">Gabriel:</span> +55 16 98172-2100
+</h3>
+
+<a href="mailto:mutiroes@unicamp.br" class="text-blue-600 font-semibold mt-4">
+   📧 mutiroes@unicamp.br
+</a>
+
+</div>
+
+<!-- VALIDAÇÃO -->
+<div id="abaValidacao" class="hidden">
+
+<input id="raValidacao" placeholder="RA"
+class="w-full p-3 border rounded mb-2">
+
+<input id="horasValidacao" type="number" placeholder="Horas"
+class="w-full p-3 border rounded mb-2">
+
+<input id="emailValidacao" placeholder="Confirme seu email"
+class="w-full p-3 border rounded mb-2">
+
+<button id="btnValidar"
+class="w-full bg-green-500 text-white p-3 rounded">
+Solicitar validação 
+</button>
+
+<div id="msgValidacao" class="mt-3 text-center"></div>
+
+<input id="tokenInput" placeholder="Token de confirmação"
+class="w-full p-3 border rounded mb-2 hidden">
+
+<button id="btnConfirmar"
+class="w-full bg-blue-500 text-white p-3 rounded hidden">
+Confirmar solicitação
+</button>
+
+</div>
+
+</div>
+
+<script>
+
+const URL = "https://script.google.com/macros/s/AKfycbw5c_x10xh_jFN_WU35r7Ha1yxC3HhXqrFXItG3uepytXqkQJRD1yNpBHPXWpUfQn0T/exec";
+
+// CONSULTA
+searchButton.onclick = async () => {
+
+const ra = raInput.value.trim();
+result.innerHTML = "<p class='text-blue-600'>Obtendo dados...</p>";
+eventsList.innerHTML = "";
+
+try {
+
+const res = await fetch(`${URL}?ra=${ra}`);
+const data = await res.json();
+
+if (data.erro) {
+result.innerHTML = `<p class='text-red-600'>${data.erro}</p>`;
+return;
+}
+
+let total = Number(data.student.hours);
+let validadas = Number(data.student.validatedHours);
+let solicitadas = Number(data.student.requestedHours);
+let status = data.student.status;
+
+let disponiveis = total - validadas;
+
+result.innerHTML = `
+<p class="text-2xl text-green-600 font-bold">
+${disponiveis} horas disponíveis
+</p>
+`;
+
+if (validadas > 0) {
+result.innerHTML += `<p class="text-green-600 text-lg font-bold">Validadas: ${validadas}h</p>`;
+}
+
+if (solicitadas > 0) {
+result.innerHTML += `<p class="text-yellow-500 text-lg font-bold">Solicitadas: ${solicitadas}h (${status})</p>`;
+}
+
+// EVENTOS CORRIGIDO
+let html = "<h3 class='mt-4 font-bold'>Eventos</h3>";
+
+data.student.events.forEach(e => {
+
+const info = data.eventInfo[e];
+
+html += `
+<div class="bg-gray-100 p-2 mt-2 rounded">
+<div class="flex justify-between">
+<span class="text-black-600 font-bold">${e}</span>
+<span class="text-blue-600 font-bold">${info?.horas || 0}h</span>
+</div>
+<div class="text-sm text-gray-500">
+${info?.data || "Sem data"}
+</div>
+</div>
+`;
+
+});
+
+eventsList.innerHTML = html;
+
+} catch {
+result.innerHTML = "<p class='text-red-600'>Erro ao buscar</p>";
+}
+
+};
+
+// Validação de Horas
+// ETAPA 1 - solicitação do Token
+
+raValidacao.addEventListener('input', () => {
+tokenInput.classList.add("hidden");
+btnConfirmar.classList.add("hidden");
+msgValidacao.innerHTML = "";
+});  
+
+btnValidar.onclick = async () => {
+
+const ra = raValidacao.value.trim();
+const horas = Number(horasValidacao.value);
+const email = emailValidacao.value.trim();
+
+if (!ra || !email) {
+msgValidacao.innerHTML = "<p class='text-red-600'>Preencha RA e email</p>";
+return;
+}
+
+if (!horas || horas <= 0) {
+msgValidacao.innerHTML = "<p class='text-red-600'>As horas devem ser maiores que 0</p>";
+return;
+}
+
+// ETAPA 1: validar email
+msgValidacao.innerHTML = "<p class='text-blue-600'>Verificando email...</p>";
+
+let res = await fetch(URL, {
+method: "POST",
+body: new URLSearchParams({
+action: "verificarEmail",
+ra,
+email
+})
+});
+
+let data = await res.json();
+
+if (!data.sucesso) {
+msgValidacao.innerHTML = `<p class='text-red-600'>${data.erro}</p>`;
+return;
+}
+
+// ETAPA 2: solicitar token
+msgValidacao.innerHTML = "<p class='text-blue-600'>Enviando código...</p>";
+
+res = await fetch(URL, {
+method: "POST",
+body: new URLSearchParams({
+action: "solicitar",
+ra,
+hours: horas
+})
+});
+
+data = await res.json();
+
+if (data.sucesso) {
+
+msgValidacao.innerHTML = `
+<p class="text-green-600 font-semibold">
+📧 Um código foi enviado para o email informado
+</p>
+
+<p class="text-gray-600 mt-2">
+Digite o código recebido para confirmar a solicitação.
+</p>
+
+<p class="text-yellow-500 font-semibold mt-2 mb-3 text-sm">
+⚠️ O código expira em 5 minutos
+</p>
+`;
+
+tokenInput.classList.remove("hidden");
+btnConfirmar.classList.remove("hidden");
+
+} else {
+msgValidacao.innerHTML = `<p class='text-red-600'>${data.erro}</p>`;
+}
+
+};
+
+
+// ETAPA 2 - Confirmação do Token 
+btnConfirmar.onclick = async () => {
+
+const ra = raValidacao.value.trim();
+const token = tokenInput.value.trim();
+
+if (!token) {
+msgValidacao.innerHTML = "<p class='text-red-600'>Digite o token</p>";
+return;
+}
+
+msgValidacao.innerHTML = "<p class='text-blue-600'>Confirmando...</p>";
+
+const res = await fetch(URL, {
+method: "POST",
+body: new URLSearchParams({
+action: "confirmar",
+ra,
+token
+})
+});
+
+const text = await res.text();
+console.log("Resposta do servidor:", text);
+
+let data;
+
+try {
+    data = JSON.parse(text);
+} catch {
+    msgValidacao.innerHTML = "<p class='text-red-600'>Erro inesperado do servidor</p>";
+    return;
+}
+
+if (data.sucesso) {
+
+msgValidacao.innerHTML = "<p class='text-green-600'>Solicitação confirmada com sucesso!</p>";
+
+// opcional: resetar campos
+tokenInput.value = "";
+horasValidacao.value = "";
+
+} else {
+msgValidacao.innerHTML = `<p class='text-red-600'>${data.erro}</p>`;
+}
+
+};
+
+// ABAS
+function ativar(aba) {
+
+abaConsulta.classList.add('hidden');
+abaInfo.classList.add('hidden');
+abaValidacao.classList.add('hidden');
+
+btnConsulta.classList.remove('active');
+btnInfo.classList.remove('active');
+btnValidacao.classList.remove('active');
+
+if (aba === 1) {
+abaConsulta.classList.remove('hidden');
+btnConsulta.classList.add('active');
+}
+if (aba === 2) {
+abaInfo.classList.remove('hidden');
+btnInfo.classList.add('active');
+}
+if (aba === 3) {
+abaValidacao.classList.remove('hidden');
+btnValidacao.classList.add('active');
+}
+
+}
+
+btnConsulta.onclick = () => ativar(1);
+btnInfo.onclick = () => ativar(2);
+btnValidacao.onclick = () => ativar(3);
+
+</script>
+
+</body>
+</html>
